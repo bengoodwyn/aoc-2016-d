@@ -27,75 +27,115 @@ struct Command {
   long distance;
 };
 
-auto turn(Position position, Turn turn) {
+auto turn(const Position position, const Turn turn) {
   final switch (turn) {
     case Turn.Right:
-      position.cardinal = cast(Cardinal)((position.cardinal + 1) % 4);
-      break;
+      return Position(
+              position.x,
+              position.y,
+              to!Cardinal((position.cardinal + 1) % 4));
     case Turn.Left:
-      position.cardinal = cast(Cardinal)((position.cardinal + 3) % 4);
-      break;
+      return Position(
+              position.x,
+              position.y,
+              to!Cardinal((position.cardinal + 3) % 4));
   }
-  return position;
 };
 
 unittest {
-  Position pos;
-  pos.cardinal = Cardinal.North;
-  assert(Cardinal.East == turn(pos, Turn.Right).cardinal);
-  assert(Cardinal.West == turn(pos, Turn.Left).cardinal);
-  pos.cardinal = Cardinal.East;
-  assert(Cardinal.South == turn(pos, Turn.Right).cardinal);
-  assert(Cardinal.North == turn(pos, Turn.Left).cardinal);
-  pos.cardinal = Cardinal.South;
-  assert(Cardinal.West == turn(pos, Turn.Right).cardinal);
-  assert(Cardinal.East == turn(pos, Turn.Left).cardinal);
-  pos.cardinal = Cardinal.West;
-  assert(Cardinal.North == turn(pos, Turn.Right).cardinal);
-  assert(Cardinal.South == turn(pos, Turn.Left).cardinal);
+  struct TestCase {
+    Cardinal start;
+    Turn turn;
+    Cardinal end;
+  }
+
+  immutable TestCase[] test_cases = [
+    { Cardinal.North, Turn.Right, Cardinal.East  },
+    { Cardinal.North, Turn.Left,  Cardinal.West  },
+    { Cardinal.East,  Turn.Right, Cardinal.South },
+    { Cardinal.East,  Turn.Left,  Cardinal.North },
+    { Cardinal.South, Turn.Right, Cardinal.West  },
+    { Cardinal.South, Turn.Left,  Cardinal.East  },
+    { Cardinal.West,  Turn.Right, Cardinal.North },
+    { Cardinal.West,  Turn.Left,  Cardinal.South }
+  ];
+
+  foreach (test_case; test_cases) {
+    immutable start = Position(0, 0, test_case.start);
+
+    immutable end = turn(start, test_case.turn);
+
+    assert(end == Position(0, 0, test_case.end));
+  }
 }
 
-auto move(Position pos, long distance) {
+auto move(const Position pos, const long distance) {
   final switch (pos.cardinal) {
     case Cardinal.North:
-      pos.y += distance;
-      break;
+      return Position(pos.x, pos.y + distance, pos.cardinal);
     case Cardinal.East:
-      pos.x += distance;
-      break;
+      return Position(pos.x + distance, pos.y, pos.cardinal);
     case Cardinal.South:
-      pos.y -= distance;
-      break;
+      return Position(pos.x, pos.y - distance, pos.cardinal);
     case Cardinal.West:
-      pos.x -= distance;
-      break;
+      return Position(pos.x - distance, pos.y, pos.cardinal);
   }
-  return pos;
 };
 
 unittest {
-  Position pos = {3, 7, Cardinal.North};
-  pos.cardinal = Cardinal.North;
-  assert(Position(3,9,pos.cardinal)==move(pos,2));
-  pos.cardinal = Cardinal.East;
-  assert(Position(5,7,pos.cardinal)==move(pos,2));
-  pos.cardinal = Cardinal.South;
-  assert(Position(3,5,pos.cardinal)==move(pos,2));
-  pos.cardinal = Cardinal.West;
-  assert(Position(1,7,pos.cardinal)==move(pos,2));
+  struct TestCase {
+    Position start;
+    long distance;
+    Position end;
+  }
+
+  immutable TestCase[] test_cases = [
+    { {3,7,Cardinal.North}, 2, { 3,9,Cardinal.North} },
+    { {3,7,Cardinal.East }, 3, { 6,7,Cardinal.East } },
+    { {3,7,Cardinal.South}, 4, { 3,3,Cardinal.South} },
+    { {3,7,Cardinal.West }, 5, {-2,7,Cardinal.West } }
+  ];
+
+  foreach (test_case; test_cases) {
+    immutable end = move(test_case.start, test_case.distance);
+
+    assert(end == test_case.end);
+  }
 }
 
 auto part1(IterT)(IterT commands) {
-  auto result = commands
-    .map!(str => Command(cast(Turn)(str[0]), to!long(str[1..$]))) 
-    .fold!((pos, command) =>
+  immutable final_position =
+    commands
+    .map!(str => Command(to!Turn(str[0]), to!long(str[1..$])))
+    .fold!((position, command) =>
           move(
-            turn(pos, command.turn),
+            turn(position, command.turn),
             command.distance)
         )(Position());
-  return abs(result.x) + abs(result.y);
+  return abs(final_position.x) + abs(final_position.y);
 }
 
 unittest {
-  assert(0 == part1(["R0"]));
+  struct TestCase {
+    long distance;
+    string[] commands;
+  }
+
+  immutable TestCase[] test_cases = [
+   { 0,  []},
+   { 5,  ["R2","L3"]},
+   { 2,  ["R2","R2","R2"]},
+   { 12, ["R5","L5","R5","R3"]},
+   { 0,  ["R0"]},
+   { 1,  ["R1"]},
+   { 10, ["R10"]},
+   { 10, ["R5","L5"]},
+   { 0,  ["R3","L3","L3","L3"]}
+  ];
+
+  foreach (test_case; test_cases) {
+    immutable distance = part1(test_case.commands);
+
+    assert(distance == test_case.distance);
+  }
 }
