@@ -1,3 +1,7 @@
+# Output files
+day[0-9]*
+main
+
 # Compiled Object files
 *.o
 *.obj

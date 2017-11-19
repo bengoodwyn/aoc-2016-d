@@ -4,87 +4,95 @@ import std.math;
 import std.stdio;
 import std.string;
 
-struct Pos {
+enum Cardinal: ubyte {
+  North = 0,
+  East,
+  South,
+  West
+};
+
+enum Turn: char {
+  Right = 'R',
+  Left = 'L'
+};
+
+struct Position {
   long x;
   long y;
-  ushort dir;
+  Cardinal cardinal;
 };
 
 struct Command {
-  char direction;
-  uint distance;
+  Turn turn;
+  long distance;
 };
 
-auto turn(Pos pos, char dir) {
-  switch (dir) {
-    case 'R':
-      pos.dir = (pos.dir + 1) % 4;
+auto turn(Position position, Turn turn) {
+  final switch (turn) {
+    case Turn.Right:
+      position.cardinal = cast(Cardinal)((position.cardinal + 1) % 4);
       break;
-    case 'L':
-      pos.dir = (pos.dir + 3) % 4;
+    case Turn.Left:
+      position.cardinal = cast(Cardinal)((position.cardinal + 3) % 4);
       break;
-    default:
-      assert(false);
   }
-  return pos;
+  return position;
 };
 
 unittest {
-  Pos pos;
-  pos.dir = 0;
-  assert(1 == turn(pos, 'R').dir);
-  assert(3 == turn(pos, 'L').dir);
-  pos.dir = 1;
-  assert(2 == turn(pos, 'R').dir);
-  assert(0 == turn(pos, 'L').dir);
-  pos.dir = 2;
-  assert(3 == turn(pos, 'R').dir);
-  assert(1 == turn(pos, 'L').dir);
-  pos.dir = 3;
-  assert(0 == turn(pos, 'R').dir);
-  assert(2 == turn(pos, 'L').dir);
+  Position pos;
+  pos.cardinal = Cardinal.North;
+  assert(Cardinal.East == turn(pos, Turn.Right).cardinal);
+  assert(Cardinal.West == turn(pos, Turn.Left).cardinal);
+  pos.cardinal = Cardinal.East;
+  assert(Cardinal.South == turn(pos, Turn.Right).cardinal);
+  assert(Cardinal.North == turn(pos, Turn.Left).cardinal);
+  pos.cardinal = Cardinal.South;
+  assert(Cardinal.West == turn(pos, Turn.Right).cardinal);
+  assert(Cardinal.East == turn(pos, Turn.Left).cardinal);
+  pos.cardinal = Cardinal.West;
+  assert(Cardinal.North == turn(pos, Turn.Right).cardinal);
+  assert(Cardinal.South == turn(pos, Turn.Left).cardinal);
 }
 
-auto move(Pos pos, ulong distance) {
-  switch (pos.dir) {
-    case 0:
-      pos.y = pos.y + distance;
+auto move(Position pos, long distance) {
+  final switch (pos.cardinal) {
+    case Cardinal.North:
+      pos.y += distance;
       break;
-    case 1:
-      pos.x = pos.x + distance;
+    case Cardinal.East:
+      pos.x += distance;
       break;
-    case 2:
-      pos.y = pos.y - distance;
+    case Cardinal.South:
+      pos.y -= distance;
       break;
-    case 3:
-      pos.x = pos.x - distance;
+    case Cardinal.West:
+      pos.x -= distance;
       break;
-    default:
-      assert(false);
   }
   return pos;
 };
 
 unittest {
-  Pos pos = {3, 7, 0};
-  pos.dir = 0;
-  assert(Pos(3,9,0)==move(pos,2));
-  pos.dir = 1;
-  assert(Pos(5,7,1)==move(pos,2));
-  pos.dir = 2;
-  assert(Pos(3,5,2)==move(pos,2));
-  pos.dir = 3;
-  assert(Pos(1,7,3)==move(pos,2));
+  Position pos = {3, 7, Cardinal.North};
+  pos.cardinal = Cardinal.North;
+  assert(Position(3,9,pos.cardinal)==move(pos,2));
+  pos.cardinal = Cardinal.East;
+  assert(Position(5,7,pos.cardinal)==move(pos,2));
+  pos.cardinal = Cardinal.South;
+  assert(Position(3,5,pos.cardinal)==move(pos,2));
+  pos.cardinal = Cardinal.West;
+  assert(Position(1,7,pos.cardinal)==move(pos,2));
 }
 
 auto part1(IterT)(IterT commands) {
   auto result = commands
-    .map!(str => Command( str[0], to!uint(str[1..$]))) 
+    .map!(str => Command(cast(Turn)(str[0]), to!long(str[1..$]))) 
     .fold!((pos, command) =>
           move(
-            turn(pos, command.direction),
+            turn(pos, command.turn),
             command.distance)
-        )(Pos());
+        )(Position());
   return abs(result.x) + abs(result.y);
 }
 
