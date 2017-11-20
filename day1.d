@@ -28,13 +28,13 @@ struct Command {
 };
 
 auto turn(const Position position, const Turn turn) {
-  final switch (turn) {
-    case Turn.Right:
+  final switch (turn) with (Turn) {
+    case Right:
       return Position(
               position.x,
               position.y,
               to!Cardinal((position.cardinal + 1) % 4));
-    case Turn.Left:
+    case Left:
       return Position(
               position.x,
               position.y,
@@ -70,14 +70,14 @@ unittest {
 }
 
 auto move(const Position pos, const long distance) {
-  final switch (pos.cardinal) {
-    case Cardinal.North:
+  final switch (pos.cardinal) with (Cardinal) {
+    case North:
       return Position(pos.x, pos.y + distance, pos.cardinal);
-    case Cardinal.East:
+    case East:
       return Position(pos.x + distance, pos.y, pos.cardinal);
-    case Cardinal.South:
+    case South:
       return Position(pos.x, pos.y - distance, pos.cardinal);
-    case Cardinal.West:
+    case West:
       return Position(pos.x - distance, pos.y, pos.cardinal);
   }
 };
