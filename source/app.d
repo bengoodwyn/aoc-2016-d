@@ -29,4 +29,12 @@ void main() {
           .filter!(x => x.length>0)
         )
       );
+  writeln(
+      day2.part2(
+        File("inputs/day2.txt")
+          .byLine(KeepTerminator.no)
+          .map!strip
+          .filter!(x => x.length>0)
+        )
+      );
 }
