@@ -4,14 +4,14 @@ import std.array;
 
 alias Position = Tuple!(int,int);
 
-immutable char[3][3] keypad = [['1','2','3'],['4','5','6'],['7','8','9']];
-immutable auto start = Position(1,1);
+immutable char[3][3] basic_keypad = [['1','2','3'],['4','5','6'],['7','8','9']];
+immutable auto basic_keypad_start = Position(1,1);
 
-char at_position(int x, int y) {
+char at_position(T)(T keypad, int x, int y) {
     return keypad[y][x];
 }
 
-Position move(CharT)(Position begin, CharT direction) {
+Position move(T, CharT)(T keypad, Position begin, CharT direction) {
   final switch (direction) {
     case 'U':
       return Position(begin[0],max(0,begin[1]-1));
@@ -25,31 +25,31 @@ Position move(CharT)(Position begin, CharT direction) {
 }
 
 unittest {
-  assert(Position(1,0)==Position(1,0).move('U'), "Can't move above top");
-  assert(Position(0,1)==Position(0,1).move('L'), "Can't move beyond left edge");
-  assert(Position(1,2)==Position(1,2).move('D'), "Can't move below bottom");
-  assert(Position(2,1)==Position(2,1).move('R'), "Can't move beyond right edge");
+  assert(Position(1,0)==move(basic_keypad,Position(1,0),'U'), "Can't move above top");
+  assert(Position(0,1)==move(basic_keypad,Position(0,1),'L'), "Can't move beyond left edge");
+  assert(Position(1,2)==move(basic_keypad,Position(1,2),'D'), "Can't move below bottom");
+  assert(Position(2,1)==move(basic_keypad,Position(2,1),'R'), "Can't move beyond right edge");
 
-  assert(Position(1,0)==Position(1,1).move('U'), "Can move up");
-  assert(Position(0,1)==Position(1,1).move('L'), "Can move left");
-  assert(Position(1,2)==Position(1,1).move('D'), "Can move down");
-  assert(Position(2,1)==Position(1,1).move('R'), "Can move right");
+  assert(Position(1,0)==move(basic_keypad,basic_keypad_start,'U'), "Can move up");
+  assert(Position(0,1)==move(basic_keypad,basic_keypad_start,'L'), "Can move left");
+  assert(Position(1,2)==move(basic_keypad,basic_keypad_start,'D'), "Can move down");
+  assert(Position(2,1)==move(basic_keypad,basic_keypad_start,'R'), "Can move right");
 }
 
-Position move(Position start, const char[] directions) {
+Position moves(T)(T keypad, Position start, const char[] directions) {
   return directions
-            .fold!((position,direction) => position.move(direction))(start);
+            .fold!((position,direction) => move(keypad,position,direction))(start);
 }
 
 unittest {
-    assert(Position(0,0)==start.move("UL"), "Can move up and left");
-    assert(Position(2,1)==start.move("ULDRR"), "Can move up left down right right");
+    assert(Position(0,0)==moves(basic_keypad,basic_keypad_start,"UL"), "Can move up and left");
+    assert(Position(2,1)==moves(basic_keypad,basic_keypad_start,"ULDRR"), "Can move up left down right right");
 }
 
 string part1(T)(T lines) {
     return lines
-        .cumulativeFold!((position,line) => position.move(line))(start)
-        .map!(position => at_position(position[0],position[1]))
+        .cumulativeFold!((position,line) => moves(basic_keypad,position,line))(basic_keypad_start)
+        .map!(position => at_position(basic_keypad, position[0],position[1]))
         .fold!((results,press) => results ~ press)("");
 }
 
