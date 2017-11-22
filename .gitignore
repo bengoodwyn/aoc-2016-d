@@ -2,6 +2,9 @@
 day[0-9]*
 main
 
+# Temporary
+*.swp
+
 # Compiled Object files
 *.o
 *.obj

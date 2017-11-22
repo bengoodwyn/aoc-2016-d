@@ -1,8 +1,10 @@
 import std.algorithm;
 import std.conv;
 import std.math;
+import std.range;
 import std.stdio;
 import std.string;
+import std.typecons;
 
 enum Cardinal: ubyte {
   North = 0,
@@ -13,7 +15,8 @@ enum Cardinal: ubyte {
 
 enum Turn: char {
   Right = 'R',
-  Left = 'L'
+  Left = 'L',
+  None = 'N'
 };
 
 struct Position {
@@ -21,6 +24,14 @@ struct Position {
   long y;
   Cardinal cardinal;
 };
+
+auto coords(Position position) {
+  return tuple(position.x, position.y);
+}
+
+auto distance(Position position) {
+  return abs(position.x) + abs(position.y);
+}
 
 struct Command {
   Turn turn;
@@ -39,6 +50,8 @@ auto turn(const Position position, const Turn turn) {
               position.x,
               position.y,
               to!Cardinal((position.cardinal + 3) % 4));
+    case None:
+      return position;
   }
 };
 
@@ -57,7 +70,11 @@ unittest {
     { Cardinal.South, Turn.Right, Cardinal.West  },
     { Cardinal.South, Turn.Left,  Cardinal.East  },
     { Cardinal.West,  Turn.Right, Cardinal.North },
-    { Cardinal.West,  Turn.Left,  Cardinal.South }
+    { Cardinal.West,  Turn.Left,  Cardinal.South },
+    { Cardinal.North, Turn.None,  Cardinal.North },
+    { Cardinal.East,  Turn.None,  Cardinal.East  },
+    { Cardinal.South, Turn.None,  Cardinal.South },
+    { Cardinal.West,  Turn.None,  Cardinal.West  },
   ];
 
   foreach (test_case; test_cases) {
@@ -112,7 +129,7 @@ auto part1(IterT)(IterT commands) {
             turn(position, command.turn),
             command.distance)
         )(Position());
-  return abs(final_position.x) + abs(final_position.y);
+  return final_position.distance;
 }
 
 unittest {
@@ -135,6 +152,56 @@ unittest {
 
   foreach (test_case; test_cases) {
     immutable distance = part1(test_case.commands);
+
+    assert(distance == test_case.distance);
+  }
+}
+
+struct FoldState {
+  Position position;
+  bool[Tuple!(long,long)] visited;
+}
+
+FoldState update_state(FoldState state, Command command) {
+  state.visited[state.position.coords] = true;
+  state.position = move(
+    turn(state.position, command.turn),
+    command.distance);
+  return state;
+}
+
+auto part2(IterT)(IterT commands) {
+  auto range =
+    commands
+    .map!(str => Command(to!Turn(str[0]), to!long(str[1..$])))
+    .map!(command =>
+            chain(
+              Command(command.turn, 1).repeat().take(1),
+              Command(Turn.None, 1).repeat().take(command.distance-1)))
+    .joiner
+    .cumulativeFold!update_state(FoldState())
+    .filter!(state => state.position.coords in state.visited)
+    .map!(state => state.position);
+  if (range.empty) {
+    return 0;
+  } else {
+    return range.front.distance;
+  }
+}
+
+unittest {
+  struct TestCase {
+    long distance;
+    string[] commands;
+  }
+
+  immutable TestCase[] test_cases = [
+    { 0, ["R3", "L3", "L3", "L3", "R3"]},
+    { 5, ["L5", "R3", "L3", "L3", "L300", "R3"]}
+  ];
+
+  foreach (test_case; test_cases) {
+    immutable distance = part2(test_case.commands);
 
     assert(distance == test_case.distance);
   }
