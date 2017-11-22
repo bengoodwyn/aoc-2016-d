@@ -196,6 +196,7 @@ unittest {
   }
 
   immutable TestCase[] test_cases = [
+    { 0, [] },
     { 0, ["R3", "L3", "L3", "L3", "R3"]},
     { 5, ["L5", "R3", "L3", "L3", "L300", "R3"]}
   ];
