@@ -1,31 +1,14 @@
-# Output files
-day[0-9]*
-main
-
-# Temporary
-*.swp
-
-# Compiled Object files
-*.o
-*.obj
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Compiled Static libraries
-*.a
-*.lib
-
-# Executables
-*.exe
-
-# DUB
 .dub
 docs.json
 __dummy.html
 docs/
-
-# Code coverage
+aoc-2016-d.so
+aoc-2016-d.dylib
+aoc-2016-d.dll
+aoc-2016-d.a
+aoc-2016-d.lib
+aoc-2016-d-test-*
+*.exe
+*.o
+*.obj
 *.lst

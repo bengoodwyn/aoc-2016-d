@@ -1,0 +1,8 @@
+{
+	"name": "aoc-2016-d",
+	"authors": [
+		"Ben Goodwyn"
+	],
+	"description": "A minimal D application.",
+	"license": "proprietary"
+}
