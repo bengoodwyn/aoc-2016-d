@@ -123,6 +123,7 @@ unittest {
 auto part1(IterT)(IterT commands) {
   immutable final_position =
     commands
+    .map!strip
     .map!(str => Command(to!Turn(str[0]), to!long(str[1..$])))
     .fold!((position, command) =>
           move(
@@ -173,6 +174,7 @@ FoldState update_state(FoldState state, Command command) {
 auto part2(IterT)(IterT commands) {
   auto range =
     commands
+    .map!strip
     .map!(str => Command(to!Turn(str[0]), to!long(str[1..$])))
     .map!(command =>
             chain(
