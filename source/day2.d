@@ -4,10 +4,10 @@ import std.array;
 
 alias Position = Tuple!(int,int);
 
-immutable char[3][3] basic_keypad = [['1','2','3'],['4','5','6'],['7','8','9']];
+immutable char[][] basic_keypad = [['1','2','3'],['4','5','6'],['7','8','9']];
 immutable auto basic_keypad_start = Position(1,1);
 
-immutable char[5][5] crazy_keypad = [
+immutable char[][] crazy_keypad = [
     [' ',' ','1',' ',' '],
     [' ','2','3','4',' '],
     ['5','6','7','8','9'],
