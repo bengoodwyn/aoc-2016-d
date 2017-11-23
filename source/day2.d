@@ -2,6 +2,8 @@ import std.typecons;
 import std.algorithm;
 import std.array;
 
+immutable string separator = "\\n";
+
 alias Position = Tuple!(int,int);
 
 immutable char[][] basic_keypad = [['1','2','3'],['4','5','6'],['7','8','9']];

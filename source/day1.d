@@ -6,6 +6,8 @@ import std.stdio;
 import std.string;
 import std.typecons;
 
+immutable string separator = ",";
+
 enum Cardinal: ubyte {
   North = 0,
   East,
