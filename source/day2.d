@@ -2,7 +2,7 @@ import std.typecons;
 import std.algorithm;
 import std.array;
 
-immutable string separator = "\\n";
+immutable separator = '\n';
 
 alias Position = Tuple!(int,int);
 
