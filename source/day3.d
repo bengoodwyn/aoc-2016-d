@@ -18,7 +18,7 @@ unittest {
     assert(1 == part1(["25 21 5"]));
 }
 
-private int[] group9(int[] accum, int x) {
+int[] group9(int[] accum, int x) {
     if (accum.length == 9) {
         return [x];
     } else {
@@ -26,7 +26,7 @@ private int[] group9(int[] accum, int x) {
     }
 }
 
-private auto adapt(T)(T lines) {
+auto adapt(T)(T lines) {
     int[] seed;
     return lines
             .map!split
