@@ -174,3 +174,12 @@ Registers execute(Instructions code) {
     }
     return registers;
 }
+
+unittest {
+    Instructions code = [["inc","a"],["dec","b"],["cpy","7","d"]];
+
+    immutable result = execute(code);
+
+    assert([3,1,-1,0,7] == result,"can execute some instructions");
+}
+
