@@ -1,9 +1,4 @@
-import std.algorithm;
-import std.ascii;
-import std.conv;
-import std.exception;
 import std.range;
-import std.string;
 import assembunny;
 
 int part1(T)(T code) {
