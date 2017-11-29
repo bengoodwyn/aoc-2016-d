@@ -160,6 +160,12 @@ Instructions collect_instructions(T)(T commands)
             )(seed);
 }
 
+unittest {
+    immutable string[] commands = ["a b c","a b","a b cd e"];
+    
+    assert([["a","b","c"],["a","b"],["a","b","cd","e"]] == collect_instructions(commands), "can parse tokens");
+}
+
 Registers execute(Instructions code) {
     Registers registers;
     int len = to!int(code.length);
