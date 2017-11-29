@@ -9,6 +9,7 @@ alias Registers = int[5];
 alias Token = string;
 alias Instruction = Token[];
 alias Instructions = Instruction[];
+alias Jit = Registers delegate(Registers);
 
 int resolve_register(const char[] name) {
     enforce(name.length == 1, "Register names are a single character");
@@ -26,102 +27,123 @@ unittest {
     assert(4 == resolve_register("d"), "can reference register d");
 }
 
-Registers execute_inc(const char[][] args, Registers start) {
+Jit jit_inc(const char[][] args) {
     enforce(args.length == 1, "inc requires a single argument");
 
-    Registers registers = start;
     immutable register_index = resolve_register(args[0]);
-    ++registers[register_index];
-    ++registers[0];
-    return registers;
+    return delegate(Registers start) {
+        Registers registers = start;
+        ++registers[register_index];
+        ++registers[0];
+        return registers;
+    };
 }
 
 unittest {
     immutable Registers start = [1,2,3,4,5];
-    Registers end = execute_inc(["a"],start);
+    Registers end = jit_inc(["a"])(start);
 
     assert(end == [2,3,3,4,5], "can add one to register");
 }
 
-Registers execute_dec(const char[][] args, Registers start) {
+Jit jit_dec(const char[][] args) {
     enforce(args.length == 1, "dec requires a single argument");
 
-    Registers registers = start;
     immutable register_index = resolve_register(args[0]);
-    --registers[register_index];
-    ++registers[0];
-    return registers;
+    return delegate(Registers start) {
+        Registers registers = start;
+        --registers[register_index];
+        ++registers[0];
+        return registers;
+    };
 }
 
 unittest {
     immutable Registers start = [1,2,3,4,5];
-    Registers end = execute_dec(["a"],start);
+    Registers end = jit_dec(["a"])(start);
 
     assert(end == [2,1,3,4,5], "can subtract one from register");
 }
 
-Registers execute_jnz(const char[][] args, Registers start) {
+Jit jit_jnz(const char[][] args) {
     enforce(args.length == 2, "jnz requires two arguments");
 
-    Registers registers = start;
     immutable distance = to!int(args[1]);
     auto source = args[0];
     if (source.length == 1 && source[0].isAlpha) {
         immutable register_index = resolve_register(args[0]);
         enforce(register_index < Registers.length, "Invalid register '%c'".format(args[0][0]));
-        if (0 == registers[register_index]) {
-            ++registers[0];
-        } else {
-            registers[0] += distance;
-        }
+        return delegate(Registers start) {
+            Registers registers = start;
+            if (0 == registers[register_index]) {
+                ++registers[0];
+            } else {
+                registers[0] += distance;
+            }
+            return registers;
+        };
     } else {
         immutable immediate_value = to!int(args[0]);
         if (0 == immediate_value) {
-            ++registers[0];
+            return delegate(Registers start) {
+                Registers registers = start;
+                ++registers[0];
+                return registers;
+            };
         } else {
-            registers[0] += distance;
+            return delegate(Registers start) {
+                Registers registers = start;
+                registers[0] += distance;
+                return registers;
+            };
         }
     }
-    return registers;
 }
 
 unittest {
     immutable Registers start = [1,2,3,4,0];
 
-    assert([2,2,3,4,0] == execute_jnz(["0","100"], start), "can avoid jump for zero");
-    assert([101,2,3,4,0] == execute_jnz(["1","100"], start), "can jmp for non-zero");
-    assert([2,2,3,4,0] == execute_jnz(["d","100"], start), "can avoid jmp for zero register");
-    assert([101,2,3,4,0] == execute_jnz(["c","100"], start), "can jmp for non-zero register");
+    assert([2,2,3,4,0] == jit_jnz(["0","100"])(start), "can avoid jump for zero");
+    assert([101,2,3,4,0] == jit_jnz(["1","100"])(start), "can jmp for non-zero");
+    assert([2,2,3,4,0] == jit_jnz(["d","100"])(start), "can avoid jmp for zero register");
+    assert([101,2,3,4,0] == jit_jnz(["c","100"])(start), "can jmp for non-zero register");
 }
 
-Registers execute_cpy(const char[][] args, Registers start) {
+Jit jit_cpy(const char[][] args) {
     enforce(args.length == 2, "cpy requires two arguments");
 
-    Registers registers = start;
     auto source = args[0];
     immutable dest_register_index = resolve_register(args[1]);
     if (source.length == 1 && source[0].isAlpha) {
         immutable source_register_index = resolve_register(args[0]);
-        registers[dest_register_index] = registers[source_register_index];
+        return delegate(Registers start) {
+            Registers registers = start;
+            registers[dest_register_index] = registers[source_register_index];
+            ++registers[0];
+            return registers;
+        };
     }
     else {
         immutable immediate_value = to!int(args[0]);
-        registers[dest_register_index] = immediate_value;
+        return delegate(Registers start) {
+            Registers registers = start;
+            registers[dest_register_index] = immediate_value;
+            ++registers[0];
+            return registers;
+        };
     }
-    ++registers[0];
-    return registers;
 }
 
 unittest {
     immutable Registers start = [1,2,3,4,5];
 
-    assert([2,2,3,4,2] == execute_cpy(["a","d"], start), "can cpy register to register");
-    assert([2,2,3,4,55] == execute_cpy(["55","d"], start), "can cpy immediate value to register");
+    assert([2,2,3,4,2] == jit_cpy(["a","d"])(start), "can cpy register to register");
+    assert([2,2,3,4,55] == jit_cpy(["55","d"])(start), "can cpy immediate value to register");
 }
 
 template DispatchOpcode(string token) {
     const char[] DispatchOpcode =
-        `if (opcode == "%s") { return execute_%s(instruction[1..$], registers); }`
+        `if (opcode == "%s") { return jit_%s(instruction[1..$])(registers); }`
             .format(token, token);
 }
 
