@@ -10,7 +10,7 @@ alias Registers = int[5];
 alias Token = string;
 alias Instruction = Token[];
 alias Instructions = Instruction[];
-alias Jit = Tuple!(Instruction, "instruction", Registers delegate(Registers), "jit");
+alias Jit = Tuple!(Instruction, "instruction", void delegate(ref Registers), "jit");
 
 int resolve_register(char name) {
     enforce(name.isAlpha, "Registers must be a letter");
@@ -32,19 +32,18 @@ Jit jit_inc(Instruction instruction) {
     immutable register_index = resolve_register(instruction[1][0]);
     return Jit(
             instruction,
-            delegate(Registers start) {
-                Registers registers = start;
+            delegate(ref Registers registers) {
                 ++registers[register_index];
                 ++registers[0];
-                return registers;
             });
 }
 
 unittest {
-    immutable Registers start = [1,2,3,4,5];
-    Registers end = jit_inc(["inc","a"]).jit(start);
+    Registers registers = [1,2,3,4,5];
 
-    assert(end == [2,3,3,4,5], "can add one to register");
+    jit_inc(["inc","a"]).jit(registers);
+
+    assert(registers == [2,3,3,4,5], "can add one to register");
 }
 
 Jit jit_dec(Instruction instruction) {
@@ -53,19 +52,18 @@ Jit jit_dec(Instruction instruction) {
     immutable register_index = resolve_register(instruction[1][0]);
     return Jit(
             instruction,
-            delegate(Registers start) {
-                Registers registers = start;
+            delegate(ref Registers registers) {
                 --registers[register_index];
                 ++registers[0];
-                return registers;
             });
 }
 
 unittest {
-    immutable Registers start = [1,2,3,4,5];
-    Registers end = jit_dec(["dec","a"]).jit(start);
+    Registers registers = [1,2,3,4,5];
+    
+    jit_dec(["dec","a"]).jit(registers);
 
-    assert(end == [2,1,3,4,5], "can subtract one from register");
+    assert(registers == [2,1,3,4,5], "can subtract one from register");
 }
 
 Jit jit_jnz(Instruction instruction) {
@@ -90,32 +88,26 @@ Jit jit_jnz(Instruction instruction) {
         immutable register_index = resolve_register(source[0]);
         return Jit(
                 instruction,
-                delegate(Registers start) {
-                    Registers registers = start;
+                delegate(ref Registers registers) {
                     if (0 == registers[register_index]) {
                         ++registers[0];
                     } else {
                         registers[0] += distance_delegate(registers);
                     }
-                    return registers;
                 });
     } else {
         immutable immediate_value = to!int(source);
         if (0 == immediate_value) {
             return Jit(
                     instruction,
-                    delegate(Registers start) {
-                        Registers registers = start;
+                    delegate(ref Registers registers) {
                         ++registers[0];
-                        return registers;
                     });
         } else {
             return Jit(
                     instruction,
-                    delegate(Registers start) {
-                        Registers registers = start;
+                    delegate(ref Registers registers) {
                         registers[0] += distance_delegate(registers);
-                        return registers;
                     });
         }
     }
@@ -123,12 +115,27 @@ Jit jit_jnz(Instruction instruction) {
 
 unittest {
     immutable Registers start = [1,2,3,4,0];
+    Registers registers;
+    
+    registers = start;
+    jit_jnz(["jnz","0","100"]).jit(registers);
+    assert([2,2,3,4,0] == registers, "can avoid jump for zero");
 
-    assert([2,2,3,4,0] == jit_jnz(["jnz","0","100"]).jit(start), "can avoid jump for zero");
-    assert([101,2,3,4,0] == jit_jnz(["jnz","1","100"]).jit(start), "can jmp for non-zero");
-    assert([2,2,3,4,0] == jit_jnz(["jnz","d","100"]).jit(start), "can avoid jmp for zero register");
-    assert([101,2,3,4,0] == jit_jnz(["jnz","c","100"]).jit(start), "can jmp for non-zero register");
-    assert([4,2,3,4,0] == jit_jnz(["jnz","a","b"]).jit(start), "can supply register for jmp offset");
+    registers = start;
+    jit_jnz(["jnz","1","100"]).jit(registers);
+    assert([101,2,3,4,0] == registers, "can jmp for non-zero");
+    
+    registers = start;
+    jit_jnz(["jnz","d","100"]).jit(registers);
+    assert([2,2,3,4,0] == registers, "can avoid jmp for zero register");
+    
+    registers = start;
+    jit_jnz(["jnz","c","100"]).jit(registers);
+    assert([101,2,3,4,0] == registers, "can jmp for non-zero register");
+    
+    registers = start;
+    jit_jnz(["jnz","a","b"]).jit(registers);
+    assert([4,2,3,4,0] == registers, "can supply register for jmp offset");
 }
 
 Jit jit_cpy(Instruction instruction) {
@@ -140,31 +147,54 @@ Jit jit_cpy(Instruction instruction) {
         immutable source_register_index = resolve_register(source[0]);
         return Jit(
                 instruction,
-                delegate(Registers start) {
-                    Registers registers = start;
+                delegate(ref Registers registers) {
                     registers[dest_register_index] = registers[source_register_index];
                     ++registers[0];
-                    return registers;
                 });
     }
     else {
         immutable immediate_value = to!int(instruction[1]);
         return Jit(
                 instruction,
-                delegate(Registers start) {
-                    Registers registers = start;
+                delegate(ref Registers registers) {
                     registers[dest_register_index] = immediate_value;
                     ++registers[0];
-                    return registers;
                 });
     }
 }
 
 unittest {
     immutable Registers start = [1,2,3,4,5];
+    Registers registers;
 
-    assert([2,2,3,4,2] == jit_cpy(["cpy","a","d"]).jit(start), "can cpy register to register");
-    assert([2,2,3,4,55] == jit_cpy(["cpy","55","d"]).jit(start), "can cpy immediate value to register");
+    registers = start;
+    jit_cpy(["cpy","a","d"]).jit(registers);
+    assert([2,2,3,4,2] == registers, "can cpy register to register");
+
+    registers = start;
+    jit_cpy(["cpy","55","d"]).jit(registers);
+    assert([2,2,3,4,55] == registers, "can cpy immediate value to register");
+}
+
+Jit jit_tgl(Instruction instruction) {
+    enforce(instruction.length == 2, "tgl requires one argument");
+    auto offset = instruction[1];
+    if (offset.length == 1 && offset[0].isAlpha) {
+        immutable register_index = resolve_register(offset[0]);
+        return Jit(
+                instruction,
+                delegate(ref Registers registers) {
+                    ++registers[0];
+                });
+    }
+    else {
+        immutable immediate_value = to!int(offset);
+        return Jit(
+                instruction,
+                delegate(ref Registers registers) {
+                    ++registers[0];
+                });
+    }
 }
 
 template DispatchOpcode(string token) {
@@ -182,21 +212,9 @@ Jit jit_instruction(Instruction instruction) {
     mixin(DispatchOpcode!("dec"));
     mixin(DispatchOpcode!("cpy"));
     mixin(DispatchOpcode!("jnz"));
+    mixin(DispatchOpcode!("tgl"));
 
     throw new Exception("Unknown opcode '%s'".format(opcode));
-}
-
-Registers execute_instruction(Instruction instruction, Registers registers) {
-    return jit_instruction(instruction).jit(registers);
-}
-
-unittest {
-    immutable Registers start = [1,2,3,4,5];
-
-    assert([2,3,3,4,5] == execute_instruction(["inc","a"], start), "can execute inc");
-    assert([2,2,2,4,5] == execute_instruction(["dec","b"], start), "can execute dec");
-    assert([2,5,3,4,5] == execute_instruction(["cpy","d","a"], start), "can execute cpy");
-    assert([5,2,3,4,5] == execute_instruction(["jnz","c","4"], start), "can execute jnz");
 }
 
 Instructions collect_instructions(T)(T commands)
@@ -230,7 +248,7 @@ Registers execute(Instructions code) {
     auto jits = jit_compile(code);
     auto ip = registers[0];
     while (ip >= 0 && ip < jits.length) {
-        registers = jits[ip].jit(registers);
+        jits[ip].jit(registers);
         ip = registers[0];
     }
     return registers;
