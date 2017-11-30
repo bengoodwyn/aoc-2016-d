@@ -71,7 +71,20 @@ unittest {
 Jit jit_jnz(Instruction instruction) {
     enforce(instruction.length == 3, "jnz requires two arguments");
 
-    immutable distance = to!int(instruction[2]);
+    auto distance = instruction[2];
+    int delegate(Registers) distance_delegate;
+    if (distance.length == 1 && distance[0].isAlpha) {
+        immutable register_index = resolve_register(distance[0]);
+        distance_delegate = delegate(Registers registers) {
+            return registers[register_index];
+        };
+    } else {
+        immutable immediate_value = to!int(distance);
+        distance_delegate = delegate(Registers) {
+            return immediate_value;
+        };
+    }
+
     auto source = instruction[1];
     if (source.length == 1 && source[0].isAlpha) {
         immutable register_index = resolve_register(source[0]);
@@ -82,12 +95,12 @@ Jit jit_jnz(Instruction instruction) {
                     if (0 == registers[register_index]) {
                         ++registers[0];
                     } else {
-                        registers[0] += distance;
+                        registers[0] += distance_delegate(registers);
                     }
                     return registers;
                 });
     } else {
-        immutable immediate_value = to!int(instruction[1]);
+        immutable immediate_value = to!int(source);
         if (0 == immediate_value) {
             return Jit(
                     instruction,
@@ -101,7 +114,7 @@ Jit jit_jnz(Instruction instruction) {
                     instruction,
                     delegate(Registers start) {
                         Registers registers = start;
-                        registers[0] += distance;
+                        registers[0] += distance_delegate(registers);
                         return registers;
                     });
         }
@@ -115,6 +128,7 @@ unittest {
     assert([101,2,3,4,0] == jit_jnz(["jnz","1","100"]).jit(start), "can jmp for non-zero");
     assert([2,2,3,4,0] == jit_jnz(["jnz","d","100"]).jit(start), "can avoid jmp for zero register");
     assert([101,2,3,4,0] == jit_jnz(["jnz","c","100"]).jit(start), "can jmp for non-zero register");
+    assert([4,2,3,4,0] == jit_jnz(["jnz","a","b"]).jit(start), "can supply register for jmp offset");
 }
 
 Jit jit_cpy(Instruction instruction) {
@@ -200,7 +214,7 @@ Instructions collect_instructions(T)(T commands)
 
 unittest {
     immutable string[] commands = ["a b c","a b","a b cd e"];
-    
+
     assert([["a","b","c"],["a","b"],["a","b","cd","e"]] == collect_instructions(commands), "can parse tokens");
 }
 
