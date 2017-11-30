@@ -2,7 +2,7 @@ import std.range;
 import assembunny;
 
 int part1(T)(T code) {
-    return code.collect_instructions.execute[resolve_register("a")];
+    return code.collect_instructions.execute[resolve_register('a')];
 }
 
 int part2(T)(T code) {
