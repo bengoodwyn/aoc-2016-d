@@ -3,6 +3,7 @@ import std.ascii;
 import std.conv;
 import std.exception;
 import std.range;
+import std.stdio;
 import std.string;
 import std.typecons;
 
@@ -10,7 +11,7 @@ alias Registers = int[5];
 alias Token = string;
 alias Instruction = Token[];
 alias Instructions = Instruction[];
-alias Jit = Tuple!(Instruction, "instruction", void delegate(ref Registers), "jit");
+alias Jit = int delegate(ref Registers, ref Instructions);
 
 int resolve_register(char name) {
     enforce(name.isAlpha, "Registers must be a letter");
@@ -30,18 +31,18 @@ Jit jit_inc(Instruction instruction) {
     enforce(instruction.length == 2, "inc requires a single argument");
 
     immutable register_index = resolve_register(instruction[1][0]);
-    return Jit(
-            instruction,
-            delegate(ref Registers registers) {
+    return delegate(ref Registers registers, ref Instructions) {
                 ++registers[register_index];
                 ++registers[0];
-            });
+                return -1;
+            };
 }
 
 unittest {
     Registers registers = [1,2,3,4,5];
+    Instructions instructions;
 
-    jit_inc(["inc","a"]).jit(registers);
+    jit_inc(["inc","a"])(registers, instructions);
 
     assert(registers == [2,3,3,4,5], "can add one to register");
 }
@@ -50,18 +51,18 @@ Jit jit_dec(Instruction instruction) {
     enforce(instruction.length == 2, "dec requires a single argument");
 
     immutable register_index = resolve_register(instruction[1][0]);
-    return Jit(
-            instruction,
-            delegate(ref Registers registers) {
+    return delegate(ref Registers registers, ref Instructions) {
                 --registers[register_index];
                 ++registers[0];
-            });
+                return -1;
+            };
 }
 
 unittest {
     Registers registers = [1,2,3,4,5];
-    
-    jit_dec(["dec","a"]).jit(registers);
+    Instructions instructions;
+
+    jit_dec(["dec","a"])(registers, instructions);
 
     assert(registers == [2,1,3,4,5], "can subtract one from register");
 }
@@ -86,29 +87,26 @@ Jit jit_jnz(Instruction instruction) {
     auto source = instruction[1];
     if (source.length == 1 && source[0].isAlpha) {
         immutable register_index = resolve_register(source[0]);
-        return Jit(
-                instruction,
-                delegate(ref Registers registers) {
+        return delegate(ref Registers registers, ref Instructions) {
                     if (0 == registers[register_index]) {
                         ++registers[0];
                     } else {
                         registers[0] += distance_delegate(registers);
                     }
-                });
+                    return -1;
+                };
     } else {
         immutable immediate_value = to!int(source);
         if (0 == immediate_value) {
-            return Jit(
-                    instruction,
-                    delegate(ref Registers registers) {
+            return delegate(ref Registers registers, ref Instructions) {
                         ++registers[0];
-                    });
+                        return -1;
+                    };
         } else {
-            return Jit(
-                    instruction,
-                    delegate(ref Registers registers) {
+            return delegate(ref Registers registers, ref Instructions) {
                         registers[0] += distance_delegate(registers);
-                    });
+                        return -1;
+                    };
         }
     }
 }
@@ -116,64 +114,125 @@ Jit jit_jnz(Instruction instruction) {
 unittest {
     immutable Registers start = [1,2,3,4,0];
     Registers registers;
-    
+    Instructions instructions;
+
     registers = start;
-    jit_jnz(["jnz","0","100"]).jit(registers);
+    jit_jnz(["jnz","0","100"])(registers, instructions);
     assert([2,2,3,4,0] == registers, "can avoid jump for zero");
 
     registers = start;
-    jit_jnz(["jnz","1","100"]).jit(registers);
+    jit_jnz(["jnz","1","100"])(registers, instructions);
     assert([101,2,3,4,0] == registers, "can jmp for non-zero");
     
     registers = start;
-    jit_jnz(["jnz","d","100"]).jit(registers);
+    jit_jnz(["jnz","d","100"])(registers, instructions);
     assert([2,2,3,4,0] == registers, "can avoid jmp for zero register");
     
     registers = start;
-    jit_jnz(["jnz","c","100"]).jit(registers);
+    jit_jnz(["jnz","c","100"])(registers, instructions);
     assert([101,2,3,4,0] == registers, "can jmp for non-zero register");
     
     registers = start;
-    jit_jnz(["jnz","a","b"]).jit(registers);
+    jit_jnz(["jnz","a","b"])(registers, instructions);
     assert([4,2,3,4,0] == registers, "can supply register for jmp offset");
 }
 
 Jit jit_cpy(Instruction instruction) {
     enforce(instruction.length == 3, "cpy requires two arguments");
 
+    auto dest = instruction[2];
+    if (dest.length != 1 || !dest[0].isAlpha) {
+        return delegate(ref Registers registers, ref Instructions) {
+                    ++registers[0];
+                    return -1;
+                };
+    }
+
     immutable dest_register_index = resolve_register(instruction[2][0]);
     auto source = instruction[1];
     if (source.length == 1 && source[0].isAlpha) {
         immutable source_register_index = resolve_register(source[0]);
-        return Jit(
-                instruction,
-                delegate(ref Registers registers) {
+        return delegate(ref Registers registers, ref Instructions) {
                     registers[dest_register_index] = registers[source_register_index];
                     ++registers[0];
-                });
+                    return -1;
+                };
     }
     else {
         immutable immediate_value = to!int(instruction[1]);
-        return Jit(
-                instruction,
-                delegate(ref Registers registers) {
+        return delegate(ref Registers registers, ref Instructions) {
                     registers[dest_register_index] = immediate_value;
                     ++registers[0];
-                });
+                    return -1;
+                };
     }
 }
 
 unittest {
     immutable Registers start = [1,2,3,4,5];
     Registers registers;
+    Instructions instructions;
 
     registers = start;
-    jit_cpy(["cpy","a","d"]).jit(registers);
+    jit_cpy(["cpy","a","d"])(registers, instructions);
     assert([2,2,3,4,2] == registers, "can cpy register to register");
 
     registers = start;
-    jit_cpy(["cpy","55","d"]).jit(registers);
+    jit_cpy(["cpy","55","d"])(registers, instructions);
     assert([2,2,3,4,55] == registers, "can cpy immediate value to register");
+
+    registers = start;
+    jit_cpy(["cpy","1","2"])(registers, instructions);
+    assert([2,2,3,4,5] == registers, "If toggling produces an invalid instruction (like cpy 1 2) and an attempt is later made to execute that instruction, skip it instead");
+}
+
+int tgl(int ip, ref Instructions instructions) {
+    if (ip < 0) { return -1; }
+    if (ip >= instructions.length) { return -1; }
+
+    Instruction original = instructions[ip];
+    if (original.length == 2) {
+        if ("inc" == original[0]) {
+            original[0] = "dec";
+        } else {
+            original[0] = "inc";
+        }
+    } else if (original.length == 3) {
+        if ("jnz" == original[0]) {
+            original[0] = "cpy";
+        } else {
+            original[0] = "jnz";
+        }
+    }
+
+    return ip;
+}
+
+unittest {
+    Instructions instructions;
+
+    instructions = [[],[]];
+    assert(-1 == tgl(-1, instructions), "If an attempt is made to toggle an instruction outside the program, nothing happens");
+    assert(-1 == tgl(2, instructions), "If an attempt is made to toggle an instruction outside the program, nothing happens");
+    instructions = [
+        ["inc","a"],
+        ["dec","a"],
+        ["tgl","a"],
+        ["jnz","a","b"],
+        ["cpy","a","b"]
+    ];
+    assert("dec" == instructions[tgl(0, instructions)][0], "inc becomes dec");
+    assert("inc" == instructions[tgl(1, instructions)][0], "all other one-argument instructions become inc");
+    assert("inc" == instructions[tgl(2, instructions)][0], "all other one-argument instructions become inc");
+    assert("cpy" == instructions[tgl(3, instructions)][0], "jnz becomes cpy");
+    assert("jnz" == instructions[tgl(4, instructions)][0], "all other two-instructions become jnz");
+    instructions
+        .map!(x => x[1])
+        .each!(x => assert(x == "a", "The arguments of a toggled instruction are not affected"));
+    instructions
+        .filter!(x => x.length > 2)
+        .map!(x => x[2])
+        .each!(x => assert(x == "b", "The arguments of a toggled instruction are not affected"));
 }
 
 Jit jit_tgl(Instruction instruction) {
@@ -181,19 +240,19 @@ Jit jit_tgl(Instruction instruction) {
     auto offset = instruction[1];
     if (offset.length == 1 && offset[0].isAlpha) {
         immutable register_index = resolve_register(offset[0]);
-        return Jit(
-                instruction,
-                delegate(ref Registers registers) {
+        return delegate(ref Registers registers, ref Instructions instructions) {
+                    auto ip = registers[0];
                     ++registers[0];
-                });
+                    return tgl(ip+registers[register_index], instructions);
+                };
     }
     else {
         immutable immediate_value = to!int(offset);
-        return Jit(
-                instruction,
-                delegate(ref Registers registers) {
+        return delegate(ref Registers registers, ref Instructions instructions) {
+                    auto ip = registers[0];
                     ++registers[0];
-                });
+                    return tgl(ip+immediate_value, instructions);
+                };
     }
 }
 
@@ -248,7 +307,12 @@ Registers execute(Instructions code) {
     auto jits = jit_compile(code);
     auto ip = registers[0];
     while (ip >= 0 && ip < jits.length) {
-        jits[ip].jit(registers);
+        debug(assembunny) writeln("Executing: ip=%d %s".format(ip, code[ip]));
+        immutable modified_ip = jits[ip](registers, code);
+        if (modified_ip >= 0) {
+            jits[modified_ip] = jit_instruction(code[modified_ip]);
+            debug(assembunny) writeln("Recompiled: ip=%d %s".format(modified_ip, code[modified_ip]));
+        }
         ip = registers[0];
     }
     return registers;
@@ -261,4 +325,3 @@ unittest {
 
     assert([3,1,-1,0,7] == result,"can execute some instructions");
 }
-
