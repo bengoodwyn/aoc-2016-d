@@ -2,6 +2,7 @@ import std.algorithm;
 import std.ascii;
 import std.conv;
 import std.exception;
+import std.functional;
 import std.range;
 import std.stdio;
 import std.string;
@@ -256,6 +257,17 @@ Jit jit_tgl(Instruction instruction) {
     }
 }
 
+int noop(ref Registers registers, ref Instructions) {
+    ++registers[0];
+    return -1;
+}
+
+
+Jit jit_noop(Instruction instruction) {
+    enforce(instruction.length == 1, "noop takes no arguments");
+    return toDelegate(&noop);
+}
+
 template DispatchOpcode(string token) {
     const char[] DispatchOpcode =
         `if (opcode == "%s") { return jit_%s(instruction); }`
@@ -272,6 +284,7 @@ Jit jit_instruction(Instruction instruction) {
     mixin(DispatchOpcode!("cpy"));
     mixin(DispatchOpcode!("jnz"));
     mixin(DispatchOpcode!("tgl"));
+    mixin(DispatchOpcode!("noop"));
 
     throw new Exception("Unknown opcode '%s'".format(opcode));
 }
@@ -302,15 +315,20 @@ Jit[] jit_compile(Instructions code) {
             .fold!((jits, jit) => (jits ~ jit))(seed);
 }
 
+Instructions optimize(Instructions code) {
+    Instructions optimized_code = code.dup;
+    return optimized_code;
+}
+
 Registers execute(Instructions code) {
     Registers registers;
-    auto jits = jit_compile(code);
+    auto jits = code.optimize.jit_compile;
     auto ip = registers[0];
     while (ip >= 0 && ip < jits.length) {
         debug(assembunny) writeln("Executing: ip=%d %s".format(ip, code[ip]));
         immutable modified_ip = jits[ip](registers, code);
         if (modified_ip >= 0) {
-            jits[modified_ip] = jit_instruction(code[modified_ip]);
+            jits = code.optimize.jit_compile;
             debug(assembunny) writeln("Recompiled: ip=%d %s".format(modified_ip, code[modified_ip]));
         }
         ip = registers[0];
